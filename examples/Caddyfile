@@ -1,0 +1,21 @@
+{
+	http_port 8080
+	log fail2ban {
+		include http.matchers.fail2ban
+		level DEBUG
+		format console
+		output stdout
+	}
+}
+
+127.0.0.1:8443
+
+@banned {
+	fail2ban ./banned-ips
+}
+handle @banned {
+	abort
+}
+route {
+	respond "Hello, World"
+}
