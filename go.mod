@@ -1,6 +1,6 @@
 module github.com/Javex/caddy-fail2ban
 
-go 1.22.2
+go 1.21.0
 
 require (
 	filippo.io/edwards25519 v1.0.0 // indirect
