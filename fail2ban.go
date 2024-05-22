@@ -14,13 +14,13 @@ import (
 )
 
 func init() {
-	caddy.RegisterModule(Middleware{})
+	caddy.RegisterModule(Fail2Ban{})
 	// httpcaddyfile.RegisterHandlerDirective("visitor_ip", parseCaddyfile)
 }
 
-// Middleware implements an HTTP handler that writes the
+// Fail2Ban implements an HTTP handler that writes the
 // visitor's IP address to a file or stream.
-type Middleware struct {
+type Fail2Ban struct {
 	// The file or stream to write to. Can be "stdout"
 	// or "stderr".
 	Output string `json:"output,omitempty"`
@@ -33,20 +33,20 @@ type Middleware struct {
 }
 
 // CaddyModule returns the Caddy module information.
-func (Middleware) CaddyModule() caddy.ModuleInfo {
+func (Fail2Ban) CaddyModule() caddy.ModuleInfo {
 	return caddy.ModuleInfo{
 		ID:  "http.matchers.fail2ban",
-		New: func() caddy.Module { return new(Middleware) },
+		New: func() caddy.Module { return new(Fail2Ban) },
 	}
 }
 
 // Provision implements caddy.Provisioner.
-func (m *Middleware) Provision(ctx caddy.Context) error {
+func (m *Fail2Ban) Provision(ctx caddy.Context) error {
 	m.logger = ctx.Logger()
 	return nil
 }
 
-func (m *Middleware) getBannedIps() ([]string, error) {
+func (m *Fail2Ban) getBannedIps() ([]string, error) {
 
 	// Open banfile
 	// Try to open file
@@ -79,14 +79,14 @@ func (m *Middleware) getBannedIps() ([]string, error) {
 }
 
 // Validate implements caddy.Validator.
-// func (m *Middleware) Validate() error {
+// func (m *Fail2Ban) Validate() error {
 // 	// if m.w == nil {
 // 	// 	return fmt.Errorf("no writer")
 // 	// }
 // 	return nil
 // }
 
-func (m *Middleware) Match(req *http.Request) bool {
+func (m *Fail2Ban) Match(req *http.Request) bool {
 	remote_ip, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
 		m.logger.Error("Error parsing remote addr into IP & port", zap.String("remote_addr", req.RemoteAddr), zap.Error(err))
@@ -121,7 +121,7 @@ func (m *Middleware) Match(req *http.Request) bool {
 }
 
 // UnmarshalCaddyfile implements caddyfile.Unmarshaler.
-func (m *Middleware) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+func (m *Fail2Ban) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 	for d.Next() {
 		switch v := d.Val(); v {
 		case "fail2ban":
@@ -139,15 +139,15 @@ func (m *Middleware) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 
 // parseCaddyfile unmarshals tokens from h into a new Middleware.
 // func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error) {
-// 	var m Middleware
+// 	var m Fail2Ban
 // 	err := m.UnmarshalCaddyfile(h.Dispenser)
 // 	return m, err
 // }
 
 // Interface guards
 var (
-	_ caddy.Provisioner = (*Middleware)(nil)
-	// _ caddy.Validator          = (*Middleware)(nil)
-	_ caddyhttp.RequestMatcher = (*Middleware)(nil)
-	_ caddyfile.Unmarshaler    = (*Middleware)(nil)
+	_ caddy.Provisioner = (*Fail2Ban)(nil)
+	// _ caddy.Validator          = (*Fail2Ban)(nil)
+	_ caddyhttp.RequestMatcher = (*Fail2Ban)(nil)
+	_ caddyfile.Unmarshaler    = (*Fail2Ban)(nil)
 )
