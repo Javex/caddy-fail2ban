@@ -37,3 +37,19 @@ action = caddy-banfile[banfile_path="/etc/caddy/banned-ips"]
 ```
 
 The above path is the default so you can omit the `banfile_path` parameter if you like.
+
+## Running tests
+
+First run the go unit tests, then spin up a docker container to test the
+integration with fail2ban
+
+```
+go build -v ./...
+go test -v ./...
+
+sudo docker build . -t caddy-fail2ban
+sudo docker run --rm --name caddy-fail2ban --detach -v $PWD/test/Caddyfile:/etc/caddy/Caddyfile caddy-fail2ban
+sudo docker exec -it caddy-fail2ban /usr/local/bin/caddy-fail2ban-test.sh
+sudo docker logs caddy-fail2ban
+sudo docker stop caddy-fail2ban
+```

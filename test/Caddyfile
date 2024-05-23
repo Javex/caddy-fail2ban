@@ -1,0 +1,15 @@
+{
+	log {
+		level DEBUG
+	}
+}
+
+127.0.0.1:80 {
+	@banned {
+		fail2ban /srv/banned-ips
+	}
+	handle @banned {
+		abort
+	}
+	respond "ok"
+}

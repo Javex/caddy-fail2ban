@@ -1,0 +1,10 @@
+[caddy_test]
+backend = auto
+enabled = true
+port = 80,443
+protocol = tcp
+filter = bitwarden
+maxretry = 3
+bantime = 86400
+findtime = 43200
+action = caddy-banfile[banfile_path="/srv/banned-ips"]
