@@ -35,13 +35,9 @@ func (Fail2Ban) CaddyModule() caddy.ModuleInfo {
 // Provision implements caddy.Provisioner.
 func (m *Fail2Ban) Provision(ctx caddy.Context) error {
 	m.logger = ctx.Logger()
-	m.banlist = NewBanlist(m.logger, &m.Banfile)
+	m.banlist = NewBanlist(ctx, m.logger, &m.Banfile)
 	m.banlist.Start()
 	return nil
-}
-
-func (m *Fail2Ban) Cleanup() error {
-	return m.banlist.Stop()
 }
 
 // Validate implements caddy.Validator.
@@ -102,8 +98,7 @@ func (m *Fail2Ban) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 
 // Interface guards
 var (
-	_ caddy.Provisioner  = (*Fail2Ban)(nil)
-	_ caddy.CleanerUpper = (*Fail2Ban)(nil)
+	_ caddy.Provisioner = (*Fail2Ban)(nil)
 	// _ caddy.Validator          = (*Fail2Ban)(nil)
 	_ caddyhttp.RequestMatcher = (*Fail2Ban)(nil)
 	_ caddyfile.Unmarshaler    = (*Fail2Ban)(nil)

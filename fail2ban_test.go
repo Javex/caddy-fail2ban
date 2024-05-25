@@ -51,12 +51,6 @@ func TestModule(t *testing.T) {
 	if err != nil {
 		t.Errorf("error provisioning: %v", err)
 	}
-	defer func() {
-		err := m.Cleanup()
-		if err != nil {
-			t.Fatalf("unexpected error on cleanup: %v", err)
-		}
-	}()
 
 	req := httptest.NewRequest("GET", "https://127.0.0.1", strings.NewReader(""))
 
@@ -93,12 +87,6 @@ func TestHeaderBan(t *testing.T) {
 	if err != nil {
 		t.Errorf("error provisioning: %v", err)
 	}
-	defer func() {
-		err := m.Cleanup()
-		if err != nil {
-			t.Fatalf("unexpected error on cleanup: %v", err)
-		}
-	}()
 
 	req := httptest.NewRequest("GET", "https://127.0.0.1", strings.NewReader(""))
 	req.Header.Add("X-Caddy-Ban", "1")
@@ -127,12 +115,6 @@ func TestBanIp(t *testing.T) {
 	if err != nil {
 		t.Errorf("error provisioning: %v", err)
 	}
-	defer func() {
-		err := m.Cleanup()
-		if err != nil {
-			t.Fatalf("unexpected error on cleanup: %v", err)
-		}
-	}()
 
 	req := httptest.NewRequest("GET", "https://127.0.0.1", strings.NewReader(""))
 	req.RemoteAddr = "127.0.0.1:1337"

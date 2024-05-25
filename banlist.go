@@ -2,17 +2,18 @@ package caddy_fail2ban
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 
+	"github.com/caddyserver/caddy/v2"
 	"github.com/fsnotify/fsnotify"
 	"go.uber.org/zap"
 )
 
 type Banlist struct {
+	ctx        caddy.Context
 	bannedIps  []string
 	shutdown   chan bool
 	lock       *sync.RWMutex
@@ -22,10 +23,10 @@ type Banlist struct {
 	reloadSubs []chan bool
 }
 
-func NewBanlist(logger *zap.Logger, banfile *string) Banlist {
+func NewBanlist(ctx caddy.Context, logger *zap.Logger, banfile *string) Banlist {
 	banlist := Banlist{
+		ctx:        ctx,
 		bannedIps:  make([]string, 0),
-		shutdown:   make(chan bool),
 		lock:       new(sync.RWMutex),
 		logger:     logger,
 		banfile:    banfile,
@@ -52,18 +53,6 @@ func (b *Banlist) IsBanned(remote_ip string) bool {
 	return false
 }
 
-func (b *Banlist) Stop() error {
-	if b.shutdown != nil {
-		b.shutdown <- true
-		_, ok := <-b.shutdown
-		if ok {
-			b.logger.Error("Failed to shutdown monitor goroutine")
-			return errors.New("shutdown of monitor failed")
-		}
-	}
-	return nil
-}
-
 func (b *Banlist) Reload() {
 	resp := make(chan bool)
 
@@ -75,7 +64,6 @@ func (b *Banlist) monitorBannedIps() {
 	b.logger.Info("Starting monitor for banned IPs")
 	defer func() {
 		b.logger.Info("Shutting down monitor for banned IPs")
-		close(b.shutdown)
 	}()
 
 	// Load initial list
@@ -131,9 +119,8 @@ func (b *Banlist) monitorBannedIps() {
 					return
 				}
 			}
-		case <-b.shutdown:
-			// Receive signal to finish
-			b.logger.Debug("Received shutdown signal")
+		case <-b.ctx.Done():
+			b.logger.Debug("Context finished, shutting down")
 			return
 		}
 	}
