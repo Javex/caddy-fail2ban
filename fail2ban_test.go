@@ -94,6 +94,11 @@ func TestHeaderBan(t *testing.T) {
 	if got, exp := m.Match(req), true; got != exp {
 		t.Errorf("unexpected match. got: %t, exp: %t", got, exp)
 	}
+
+	// Trigger explicit reload just to give the goroutine enough time to spin up,
+	// otherwise the defer above will delete the temporary directory before it
+	// had time to initialise
+	m.banlist.Reload()
 }
 
 func TestBanIp(t *testing.T) {

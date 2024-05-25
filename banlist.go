@@ -5,18 +5,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/fsnotify/fsnotify"
 	"go.uber.org/zap"
 )
 
+type banQuery struct {
+	response chan bool
+	ip       string
+}
+
 type Banlist struct {
 	ctx        caddy.Context
 	bannedIps  []string
 	shutdown   chan bool
-	lock       *sync.RWMutex
+	queries    chan banQuery
 	logger     *zap.Logger
 	banfile    *string
 	reload     chan chan bool
@@ -25,13 +29,12 @@ type Banlist struct {
 
 func NewBanlist(ctx caddy.Context, logger *zap.Logger, banfile *string) Banlist {
 	banlist := Banlist{
-		ctx:        ctx,
-		bannedIps:  make([]string, 0),
-		lock:       new(sync.RWMutex),
-		logger:     logger,
-		banfile:    banfile,
-		reload:     make(chan chan bool),
-		reloadSubs: make([]chan bool, 0),
+		ctx:       ctx,
+		bannedIps: make([]string, 0),
+		queries:   make(chan banQuery),
+		logger:    logger,
+		banfile:   banfile,
+		reload:    make(chan chan bool),
 	}
 	return banlist
 }
@@ -41,16 +44,15 @@ func (b *Banlist) Start() {
 }
 
 func (b *Banlist) IsBanned(remote_ip string) bool {
-	b.lock.RLock()
-	defer b.lock.RUnlock()
-
-	for _, ip := range b.bannedIps {
-		b.logger.Debug("Checking IP", zap.String("ip", ip), zap.String("remote_ip", remote_ip))
-		if ip == remote_ip {
-			return true
-		}
+	response := make(chan bool)
+	query := banQuery{
+		response,
+		remote_ip,
 	}
-	return false
+	b.queries <- query
+	isBanned := <-response
+	close(response)
+	return isBanned
 }
 
 func (b *Banlist) Reload() {
@@ -98,13 +100,19 @@ func (b *Banlist) monitorBannedIps() {
 			}
 			b.logger.Debug("Banlist reloaded")
 			resp <- true
+		case query := <-b.queries:
+			// Respond to query whether an IP has been banned
+			b.logger.Debug("Handling ban query", zap.String("remote_ip", query.ip))
+			b.handleQuery(query)
 		case err, ok := <-watcher.Errors:
+			// Handle errors from fsnotify
 			if !ok {
 				b.logger.Error("Error channel closed unexpectedly, stopping monitor")
 				return
 			}
 			b.logger.Error("Error from fsnotify", zap.Error(err))
 		case event, ok := <-watcher.Events:
+			// Respond to changed file events from fsnotify
 			if !ok {
 				b.logger.Error("Watcher closed unexpectedly, stopping monitor")
 				return
@@ -120,10 +128,23 @@ func (b *Banlist) monitorBannedIps() {
 				}
 			}
 		case <-b.ctx.Done():
+			// Caddy will close the context when it's time to shut down
 			b.logger.Debug("Context finished, shutting down")
 			return
 		}
 	}
+}
+
+func (b *Banlist) handleQuery(query banQuery) {
+	remote_ip := query.ip
+	for _, ip := range b.bannedIps {
+		b.logger.Debug("Checking IP", zap.String("ip", ip), zap.String("remote_ip", remote_ip))
+		if ip == remote_ip {
+			query.response <- true
+			return
+		}
+	}
+	query.response <- false
 }
 
 // Provide a channel that will receive a boolean true value whenever the list
@@ -141,12 +162,14 @@ func (b *Banlist) loadBannedIps() error {
 		b.logger.Error("Error getting list of banned IPs")
 		return err
 	} else {
-		b.lock.Lock()
 		b.bannedIps = bannedIps
-		b.lock.Unlock()
 		for _, n := range b.reloadSubs {
 			n <- true
 		}
+		// only respond once then clear subs, otherwise further attempts might
+		// block as the receiver only reads one event rather than constantly
+		// draining it.
+		b.reloadSubs = nil
 		return nil
 	}
 }
