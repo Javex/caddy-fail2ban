@@ -140,4 +140,19 @@ func TestBanIp(t *testing.T) {
 	if !m.Match(req) {
 		t.Errorf("IP should have been banned")
 	}
+
+	// unban by writing to a new file and moving it over
+	reloadEvent = make(chan bool)
+	m.banlist.subscribeToReload(reloadEvent)
+	newBanlistFile := path.Join(tempDir, "new-bans")
+	os.WriteFile(newBanlistFile, []byte(""), 0644)
+	os.Rename(newBanlistFile, fail2banFile)
+	<-reloadEvent
+
+	req = httptest.NewRequest("GET", "https://127.0.0.1", strings.NewReader(""))
+	req.RemoteAddr = "127.0.0.1:1337"
+
+	if m.Match(req) {
+		t.Errorf("IP should NOT have been banned any more")
+	}
 }

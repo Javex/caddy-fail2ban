@@ -118,7 +118,7 @@ func (b *Banlist) monitorBannedIps() {
 			}
 			// We get events for the whole directory but only want to do work if the
 			// changed file is our banfile
-			if event.Has(fsnotify.Write) && event.Name == *b.banfile {
+			if (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) && event.Name == *b.banfile {
 				b.logger.Debug("File has changed, reloading banned IPs")
 				err = b.loadBannedIps()
 				if err != nil {
