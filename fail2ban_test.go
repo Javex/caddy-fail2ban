@@ -51,6 +51,12 @@ func TestModule(t *testing.T) {
 	if err != nil {
 		t.Errorf("error provisioning: %v", err)
 	}
+	defer func() {
+		err := m.Cleanup()
+		if err != nil {
+			t.Fatalf("unexpected error on cleanup: %v", err)
+		}
+	}()
 
 	req := httptest.NewRequest("GET", "https://127.0.0.1", strings.NewReader(""))
 
@@ -58,7 +64,7 @@ func TestModule(t *testing.T) {
 		t.Errorf("unexpected match. got: %t, exp: %t", got, exp)
 	}
 
-	bannedIps, err := m.getBannedIps()
+	bannedIps, err := m.banlist.getBannedIps()
 	if err != nil {
 		t.Errorf("error loading banned ips: %v", err)
 	}
@@ -87,6 +93,12 @@ func TestHeaderBan(t *testing.T) {
 	if err != nil {
 		t.Errorf("error provisioning: %v", err)
 	}
+	defer func() {
+		err := m.Cleanup()
+		if err != nil {
+			t.Fatalf("unexpected error on cleanup: %v", err)
+		}
+	}()
 
 	req := httptest.NewRequest("GET", "https://127.0.0.1", strings.NewReader(""))
 	req.Header.Add("X-Caddy-Ban", "1")
@@ -115,6 +127,12 @@ func TestBanIp(t *testing.T) {
 	if err != nil {
 		t.Errorf("error provisioning: %v", err)
 	}
+	defer func() {
+		err := m.Cleanup()
+		if err != nil {
+			t.Fatalf("unexpected error on cleanup: %v", err)
+		}
+	}()
 
 	req := httptest.NewRequest("GET", "https://127.0.0.1", strings.NewReader(""))
 	req.RemoteAddr = "127.0.0.1:1337"
@@ -124,7 +142,10 @@ func TestBanIp(t *testing.T) {
 	}
 
 	// ban IP
+	reloadEvent := make(chan bool)
+	m.banlist.subscribeToReload(reloadEvent)
 	os.WriteFile(fail2banFile, []byte("127.0.0.1"), 0644)
+	<-reloadEvent
 
 	req = httptest.NewRequest("GET", "https://127.0.0.1", strings.NewReader(""))
 	req.RemoteAddr = "127.0.0.1:1337"

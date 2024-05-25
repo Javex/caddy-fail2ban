@@ -1,9 +1,12 @@
 FROM caddy:2.7-builder AS builder
 
 COPY ./fail2ban.go /src/caddy-fail2ban/
+COPY ./banlist.go /src/caddy-fail2ban/
 COPY ./go.sum /src/caddy-fail2ban/
 COPY ./go.mod /src/caddy-fail2ban/
-RUN xcaddy build \
+RUN --mount=type=cache,target=/root/.cache/go-build \
+  --mount=type=cache,target=/go/pkg/mod \
+  xcaddy build \
     --with github.com/Javex/caddy-fail2ban=/src/caddy-fail2ban
 
 FROM caddy:2.7

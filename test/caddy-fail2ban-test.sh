@@ -12,6 +12,8 @@ if [ "$output" != "ok" ]; then
 fi
 
 fail2ban-client set caddy_test banip 127.0.0.1
+# Wait for inotify to tell caddy to reload list
+sleep 1
 
 set +e
 curl http://127.0.0.1

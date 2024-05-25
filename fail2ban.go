@@ -1,11 +1,9 @@
 package caddy_fail2ban
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
@@ -15,21 +13,15 @@ import (
 
 func init() {
 	caddy.RegisterModule(Fail2Ban{})
-	// httpcaddyfile.RegisterHandlerDirective("visitor_ip", parseCaddyfile)
 }
 
-// Fail2Ban implements an HTTP handler that writes the
-// visitor's IP address to a file or stream.
+// Fail2Ban implements an HTTP handler that checks a specified file for banned
+// IPs and matches if they are found
 type Fail2Ban struct {
-	// The file or stream to write to. Can be "stdout"
-	// or "stderr".
-	Output string `json:"output,omitempty"`
-
-	// w io.Writer
-
 	Banfile string `json:"banfile"`
 
-	logger *zap.Logger
+	logger  *zap.Logger
+	banlist Banlist
 }
 
 // CaddyModule returns the Caddy module information.
@@ -43,39 +35,13 @@ func (Fail2Ban) CaddyModule() caddy.ModuleInfo {
 // Provision implements caddy.Provisioner.
 func (m *Fail2Ban) Provision(ctx caddy.Context) error {
 	m.logger = ctx.Logger()
+	m.banlist = NewBanlist(m.logger, &m.Banfile)
+	m.banlist.Start()
 	return nil
 }
 
-func (m *Fail2Ban) getBannedIps() ([]string, error) {
-
-	// Open banfile
-	// Try to open file
-	banfileHandle, err := os.Open(m.Banfile)
-	if err != nil {
-		m.logger.Info("Creating new file at since Open failed", zap.String("banfile", m.Banfile), zap.Error(err))
-		// Try to create new file, maybe the file didn't exist yet
-		banfileHandle, err = os.Create(m.Banfile)
-		if err != nil {
-			m.logger.Error("Error creating banfile", zap.String("banfile", m.Banfile), zap.Error(err))
-			return nil, fmt.Errorf("cannot open or create banfile: %v", err)
-		}
-	}
-	defer banfileHandle.Close()
-
-	// read banned IPs
-	bannedIps := make([]string, 0)
-	scanner := bufio.NewScanner(banfileHandle)
-	for scanner.Scan() {
-		line := scanner.Text()
-		m.logger.Debug("Adding banned IP to list", zap.String("banned_addr", line))
-		bannedIps = append(bannedIps, line)
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error parsing banfile: %v", err)
-	}
-
-	return bannedIps, nil
+func (m *Fail2Ban) Cleanup() error {
+	return m.banlist.Stop()
 }
 
 // Validate implements caddy.Validator.
@@ -101,19 +67,9 @@ func (m *Fail2Ban) Match(req *http.Request) bool {
 		return true
 	}
 
-	// check IPs, too
-	bannedIps, err := m.getBannedIps()
-	if err != nil {
-		m.logger.Error("error getting banned IPs", zap.Error(err))
-		// Deny by default
+	if m.banlist.IsBanned(remote_ip) == true {
+		m.logger.Info("banned IP", zap.String("remote_addr", remote_ip))
 		return true
-	}
-
-	for _, ip := range bannedIps {
-		if ip == remote_ip {
-			m.logger.Debug("banned IP", zap.String("remote_addr", remote_ip))
-			return true
-		}
 	}
 
 	m.logger.Debug("received request", zap.String("remote_addr", remote_ip))
@@ -146,7 +102,8 @@ func (m *Fail2Ban) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 
 // Interface guards
 var (
-	_ caddy.Provisioner = (*Fail2Ban)(nil)
+	_ caddy.Provisioner  = (*Fail2Ban)(nil)
+	_ caddy.CleanerUpper = (*Fail2Ban)(nil)
 	// _ caddy.Validator          = (*Fail2Ban)(nil)
 	_ caddyhttp.RequestMatcher = (*Fail2Ban)(nil)
 	_ caddyfile.Unmarshaler    = (*Fail2Ban)(nil)
