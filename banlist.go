@@ -29,12 +29,11 @@ type Banlist struct {
 
 func NewBanlist(ctx caddy.Context, logger *zap.Logger, banfile *string) Banlist {
 	banlist := Banlist{
-		ctx:       ctx,
-		bannedIps: make([]string, 0),
-		queries:   make(chan banQuery),
-		logger:    logger,
-		banfile:   banfile,
-		reload:    make(chan chan bool),
+		ctx:     ctx,
+		queries: make(chan banQuery),
+		logger:  logger,
+		banfile: banfile,
+		reload:  make(chan chan bool),
 	}
 	return banlist
 }

@@ -40,14 +40,6 @@ func (m *Fail2Ban) Provision(ctx caddy.Context) error {
 	return nil
 }
 
-// Validate implements caddy.Validator.
-// func (m *Fail2Ban) Validate() error {
-// 	// if m.w == nil {
-// 	// 	return fmt.Errorf("no writer")
-// 	// }
-// 	return nil
-// }
-
 func (m *Fail2Ban) Match(req *http.Request) bool {
 	remote_ip, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
@@ -89,17 +81,9 @@ func (m *Fail2Ban) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 	return nil
 }
 
-// parseCaddyfile unmarshals tokens from h into a new Middleware.
-// func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error) {
-// 	var m Fail2Ban
-// 	err := m.UnmarshalCaddyfile(h.Dispenser)
-// 	return m, err
-// }
-
 // Interface guards
 var (
-	_ caddy.Provisioner = (*Fail2Ban)(nil)
-	// _ caddy.Validator          = (*Fail2Ban)(nil)
+	_ caddy.Provisioner        = (*Fail2Ban)(nil)
 	_ caddyhttp.RequestMatcher = (*Fail2Ban)(nil)
 	_ caddyfile.Unmarshaler    = (*Fail2Ban)(nil)
 )
